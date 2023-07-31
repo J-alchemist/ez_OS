@@ -29,9 +29,10 @@ os_stk_t *port_task_stack_init(void (*task)(void *arg),
 {
     // os进入异常[前]，cpu自动入栈
     // 自动入栈寄存器
+    // 自动入栈的为栈帧
     *stack = 0x01000000u;                       /* xPSR */
     stack--;                        
-    *stack = (u32_t)task;                       /* return address */
+    *stack = (u32_t)task;                       /* Entry Point */
     stack--;
     *stack = (u32_t)os_task_return;             /* R14 (LR) */
     stack -= 5;                                 /* R12, R3, R2, R1, R0 */
@@ -44,6 +45,53 @@ os_stk_t *port_task_stack_init(void (*task)(void *arg),
     return stack;    
 }
 
+__asm void port_PendSV_Handler(void)
+{
+    extern ezos_curr_running_task_ptcb;
+    extern ezos_curr_running_priority;
+    extern ezos_next_run_priority;
+
+    PRESERVE8 
+
+    // 关闭中段(PRIMASK = 1)
+    cpsid   i                                   
+    // save current task context
+    // 保存当前堆栈，psp到r0
+    mrs     r0, psp
+    isb
+    // 入栈: 将r4～r11从r0指向的地址存放数据，r0自动递减
+    stmdb   r0!, {r4-r11}
+
+    // 入栈完毕，更新ccur_task的栈顶指针
+    ldr     r1, =ezos_curr_running_task_ptcb        
+    ldr     r1, [r1]                            
+    str     r0, [r1]                            
+
+    // 更新priority
+    ldr     r0, =ezos_curr_running_priority
+    ldr     r1, =ezos_next_run_priority 
+    ldrb    r2, [r1] 
+    strb    r2, [r0]
+
+    // 更新tcb
+    ldr     r0, =ezos_curr_running_task_ptcb    
+    ldr     r1, =ezos_next_run_task_ptcb
+    ldr     r2, [r1]
+    str     r2, [r0]      
+
+    // 获取下一个任务的栈顶指针 
+    ldr     r0, [r2]     
+    // 从该地址开始出栈下一个任务的   
+    ldmia   r0!, {r4-r11}
+    // 更新psp，让出中断后cpu好自动出栈其余寄存器
+    msr     psp, r0
+    isb
+    // 开中断，跳转
+    cpsie   i  
+    bx      r14 
+    nop 
+}
+
 __asm void port_SVC_Handler(void)
 {
     extern ezos_next_run_task_ptcb;
@@ -51,35 +99,72 @@ __asm void port_SVC_Handler(void)
 
     PRESERVE8
 
+    // 获取下一个要运行任务的堆栈地址，存在r0
     ldr r1, =ezos_next_run_task_ptcb
     ldr r1, [r1]
     ldr r0, [r1]
+    // 下一个任务的堆栈首地址给到r0
+    // 从r0出栈一半寄存器到r4～r11，递增r0地址
     ldmia r0!, {r4-r11}
+    // 进程堆栈psp指向r0，也就是指向下一个任务的堆栈地址，用于cpu自动出栈一半的寄存器
     msr psp, r0 
     isb 
 
+    // 设置ezos_running=1，OS运行起来了
     ldr r0, =ezos_running
     movs r1, #1
     strb r1, [r0]
 	
+    // 更新priority
     // set: ezos_curr_running_priority = ezos_next_run_priority
 	ldr     r0, =ezos_curr_running_priority
     ldr     r1, =ezos_next_run_priority 
     ldrb    r2, [r1] 
-    strb    r2, [r0]      
+    strb    r2, [r0]  
 
+    // 更新tcb
     // set: ezos_curr_running_task_ptcb = ezos_next_run_task_ptcb
     ldr     r0, =ezos_curr_running_task_ptcb    
     ldr     r1, =ezos_next_run_task_ptcb
     ldr     r2, [r1]
     str     r2, [r0]                            
 
+    // 开所有中断(BASEPRI)
     mov r0, #0
     msr basepri, r0 
 
-    // 设置exec_runtime值
+    // 设置exec_return
+    // LR = LR | 0xd，改变exec_return: 0xfffffff9 -> 0xfffffffd
+    // 退出isr，跳转到r14，因为exec_return = 0xfffffffd，cpu会运行在线程模式，使用进程堆栈指针psp
     orr r14, #0xd
     bx r14
+}
+
+__asm void port_start_first_task(void)      
+{
+    PRESERVE8
+
+    // 利用scb->vtor重置msp
+    // 0xE000ED08地址是VTOR寄存器，设置向量表地址
+    // 从0xE000ED08取一个数出来作为地址，再从这个地址取值给到r0
+    ldr r0, =0xE000ED08
+    ldr r0, [r0]
+    ldr r0, [r0]
+
+    // 读取r0值到msp，重置msp
+    msr msp, r0
+
+    // 使能中断(PRIMASK\FAULTMASK) 
+    cpsie i 
+    cpsie f 
+    // 内存屏蔽: 等待所有前面的指令完成后再执行后面的指令
+    dsb 
+    isb 
+
+    // call svc
+    svc 0
+    nop 
+    nop 
 }
 
 void port_Systick_init(void)            // 内核定时器
@@ -112,7 +197,7 @@ void port_SysTick_Handler(void)         // 滴答定时器中断
 {
     os_cpu_psr_t cpu_psr = 0;
 
-    if(0 == os_get_running_status()){
+    if(0 == os_get_running_status()) {
         return;
     }
 

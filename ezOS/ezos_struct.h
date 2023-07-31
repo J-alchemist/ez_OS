@@ -3,8 +3,8 @@
 
 #include "port.h"           // 基础数据结构
 
-// 系统任务数量
-#define OS_SYSTEM_TASKS_NUM                             (2)    
+// 内核自带默认任务数量
+#define OS_SYSTEM_TASKS_NUM                             (1)    
 
 // 任务就绪表大小
 #define OS_CFG_TASK_READY_TBL_SIZE                      (8)     

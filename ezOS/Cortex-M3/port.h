@@ -66,7 +66,6 @@ void port_SVC_Handler(void);
 os_stk_t *port_task_stack_init(void (*task)(void *arg), 
                             void *arg, 
                             os_stk_t *stack);
-void port_start_first_task(void);
 
 // PendSV，设置优先级最低
 void port_trigger_PendSV_Handler(void);
@@ -74,6 +73,9 @@ void port_set_PendSV_Handler_lowest_priority(void);
 
 // 内核定时器初始化
 void port_Systick_init(void);
+
+// 首个任务的核心: 是要实现CPU从内核态切换到用户态，从MSP使用，切换到PSP
+void port_start_first_task(void);
 
 /************ 外部函数声明 from core.c  **********/
 extern void os_task_return(void);

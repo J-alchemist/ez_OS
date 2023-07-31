@@ -23,8 +23,8 @@ static void tcb_slist_add_tail(os_tcb_t *node)
 {
     os_tcb_t *ptcb = NULL;
 
-    if(ezos_list_head_tcbs == NULL){
-        ezos_list_head_tcbs = node;
+    if(ezos_list_head_tcbs == NULL){        // 更新头指针
+        ezos_list_head_tcbs = node;     
         ezos_list_tcbs_tail = node;
         return;
     }
@@ -66,7 +66,7 @@ os_tcb_t *os_tcb_malloc(void)       // 为某个任务申请一个未使用的tc
         if(ezos_tcb_heaps[i].flag_used == OS_FLAG_UNUSED){
 
             ezos_tcb_heaps[i].flag_used = OS_FLAG_USED; // 标记使用
-            ptcb = &ezos_tcb_heaps[i].tcb;
+            ptcb = &ezos_tcb_heaps[i].tcb;              // 返回该tcb地址（同时也是栈顶指针）
             
             ptcb->list_next_tcb = NULL;
             
@@ -152,7 +152,13 @@ const u8_t ezos_lowest_bit_of_byte_map[256] = {
     4u, 0u, 1u, 0u, 2u, 0u, 1u, 0u, 3u, 0u, 1u, 0u, 2u, 0u, 1u, 0u  /* 0xF0 to 0xFF */
 };
 
-static u8_t os_get_highest_ready_task_priority(void)       // ????????????????
+/**
+ * 详细解释: 
+ * ezos_task_ready_tbl[]
+ * 下标：任务组
+ * 数值：组内编号
+*/
+static u8_t os_get_highest_ready_task_priority(void)    // ????????????????
 {
     u8_t x, y;
 
@@ -174,11 +180,11 @@ static void os_update_next_run_task_ptcb(void)          // 更新下一个任务
 static s16_t os_task_tcb_init(os_tcb_t *ptcb, u8_t priority, os_stk_t *pstack)
 {
     u16_t rc;
-    if((ptcb == NULL) || (pstack == NULL)){
+    if((ptcb == NULL) || (pstack == NULL)) {
         return OS_ERR_TCB_INIT_PARAM_ILLEGAL;
     }
 
-    if((priority == 0) || (priority > OS_CFG_LOWEST_PRIORITY)){
+    if((priority == 0) || (priority > OS_CFG_LOWEST_PRIORITY)) {
         return OS_ERR_TCB_INIT_PARAM_ILLEGAL;
     }
 
@@ -187,9 +193,9 @@ static s16_t os_task_tcb_init(os_tcb_t *ptcb, u8_t priority, os_stk_t *pstack)
     ptcb->taskDlyTicks = 0;                       // Task is not delayed 
 
     //  priority/8
-    ptcb->taskReadyGroup_bit = (priority >> 3);   // priority / 8
+    ptcb->taskReadyGroup_bit = (priority >> 3);   // priority / 8   任务组
     // 保留低3位
-    ptcb->taskReadyTbl_bit = (priority & 0x07);   // 0000 0111  
+    ptcb->taskReadyTbl_bit = (priority & 0x07);   // 0000 0111      组内编号
 
     // 掩码
     ptcb->taskReadyGroup_mask = (1 << ptcb->taskReadyGroup_bit);
@@ -199,8 +205,8 @@ static s16_t os_task_tcb_init(os_tcb_t *ptcb, u8_t priority, os_stk_t *pstack)
     ptcb->taskStatus = OS_TASK_STATUS_READY;      // 就绪态任务
 
     // 更新就绪组和就绪表
-    ezos_task_ready_group |= ptcb->taskReadyGroup_mask; // ezos_lowest_bit_of_byte_map中的位置
-    ezos_task_ready_tbl[ptcb->taskReadyGroup_bit] |= ptcb->taskReadyTbl_mask;
+    ezos_task_ready_group |= ptcb->taskReadyGroup_mask;  // 记录有就绪任务的组别
+    ezos_task_ready_tbl[ptcb->taskReadyGroup_bit] |= ptcb->taskReadyTbl_mask;   // 第xx组的xx任务就绪，ready_tbl[0]数据的某位代表第0组的某个任务就绪
 
     tcb_slist_add_tail(ptcb);       // 添加该任务块tcb到尾指针
 
@@ -211,7 +217,7 @@ static s16_t os_task_tcb_init(os_tcb_t *ptcb, u8_t priority, os_stk_t *pstack)
 
 
 /*********************** **************** ***********************/
-// os是否在运行
+// os是否在运行 
 u8_t os_get_running_status(void)
 {
     return ezos_running;
@@ -352,13 +358,14 @@ void os_sched(void)
 }
 
 // isr退出时，需要进行一次任务调度
+// 在isr活跃期间禁止切入线程模式
 void os_sched_isr_exit(void)
 {
     os_cpu_psr_t cpu_psr = 0;
 
     if(ezos_running) {
         OSEnterCritical();
-        if(ezos_isr_nesting > 0){
+        if(ezos_isr_nesting > 0) {
             if(--ezos_isr_nesting == 0)
                 os_sched_next();
         }
@@ -461,8 +468,8 @@ void OSInit(void)
 // OS启动
 void OSStart(void)
 {
-    os_get_highest_ready_task_priority();
-    os_update_next_run_task_ptcb();
-    port_Systick_init();
+    os_get_highest_ready_task_priority();   // 获取最高优先级就绪任务
+    os_update_next_run_task_ptcb();         // 从优先级信息表，更新下一个任务tcb
+    port_Systick_init();                    // 初始化内核定时器
     port_start_first_task();
 }

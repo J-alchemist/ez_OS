@@ -19,9 +19,9 @@ static void test_task1(void *arg)
 {
 	while(1) {
 		led_ctrl(0, 1);
-		os_task_dly(200);
+		os_task_dlyms(200);
 		led_ctrl(0, 0);
-		os_task_dly(200);
+		os_task_dlyms(200);
 	}
 }
 // tsak2
@@ -29,16 +29,16 @@ static void test_task2(void *arg)
 {
 	while(1){
 		led_ctrl(1, 0);
-		os_task_dly(200);
+		os_task_dlyms(200);
 		led_ctrl(1, 1);
-		os_task_dly(200);
+		os_task_dlyms(200);
 	}
 }
 
 // main
 int main(void)
 {	
-	os_init();	// init OS
+	OSInit();	// init OS
 	LED_Init();	// init stm32 led hardware
 
 	os_task_create(test_task1, 
@@ -51,7 +51,7 @@ int main(void)
 					&task2_stk[TEST_TASK2_STK_SIZE-1], 
 					TEST_TASK2_PRIORITY);
 
-	os_start();	// start OS
+	OSStart();	// start OS
 
 	return 0;
 }
