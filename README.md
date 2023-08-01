@@ -2,16 +2,16 @@
 # ####       ez_OS    ##############
 # ##################################
 # ----Talk is cheap.Show me your code.
-# 本系统参照ucosII实现，不支持两个及以上相同的任务优先级的任务，不支持时间片轮转
+本系统参照ucosII实现，不支持两个及以上相同的任务优先级的任务，不支持时间片轮转
 
 #  based on Cortex-CM3
-# 【异常入栈】port_task_stack_init
-# 进入异常函数前：cpu自动入栈 xPSR、R14 (LR)、R12, R3, R2, R1, R0
-# 进入异常函数后：手动看需要入栈那些: R11, R10, R9, R8, R7, R6, R5, R4
-# exc_return = 0xfffffffd，cpu会运行在线程模式&&使用任务堆栈指针psp
+进入异常函数前：cpu自动入栈 xPSR、R14 (LR)、R12, R3, R2, R1, R0
+进入异常函数后：手动看需要入栈那些: R11, R10, R9, R8, R7, R6, R5, R4
+exc_return = 0xfffffffd，cpu会运行在线程模式&&使用任务堆栈指针psp
 
 
 # Cortex-M3的栈示意图，r0～xpsr为Cortex-M3的栈帧结构
+```
 (sp)--> ----------------(高地址，从xPSR开始入栈)
         ----------------  
         ----------------
@@ -28,10 +28,10 @@
         ----------------
         ----------------
         ----------------（低地址，R4）
-
+```
 # 过程分析
 # CPU上电进入：特权级（内核态）-线程 模式，堆栈指针使用主堆栈指针msp，进入OS初始化，运行port_start_first_task设置系统状态：
-|<-  ...... cpu上电        ->|<-      cpu状态设置
+|<-  ...... cpu上电        ->|<-      cpu状态设置       ->|  任务切换... ...
 
     |     内核态-线程模式      |       内核态-中段模式                  |    用户态-线程模式  |   内核态-中段模式                                   |               |
     |      sp=msp            |          sp=msp                     |       sp=psp      |     sp=msp                                        |    as task1   |
@@ -41,13 +41,13 @@
 
 # SCB->VTOR
 0xE000ED08地址是 SCB->VTOR 寄存器，用于设置向量表基地址，可以用来重置msp主进程堆栈。
-`
+```
     ldr r0, =0xE000ED08
     ldr r0, [r0]
     ldr r0, [r0]
 
     msr msp, r0
-`
+```
 
 # CM3-特殊寄存器：PRIMASK\FAULTMASK\BASEPRI\xPSR
 为了快速地关中断，Cortex-M内核专门设置了一条CPS指令，有4种用法：
