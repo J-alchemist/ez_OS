@@ -32,7 +32,7 @@ exc_return = 0xfffffffd，cpu会运行在线程模式&&使用任务堆栈指针p
         ----------------（低地址，R4）
 ```
 # 过程分析
-CPU上电进入：特权级（内核态）-线程 模式，堆栈指针使用主堆栈指针msp，进入OS初始化，运行port_start_first_task设置系统状态：
+CPU上电进入：特权级（内核态）-线程 模式，堆栈指针使用主堆栈指针msp，进入OS初始化，运行port_start_first_task设置系统状态：  
 |<-  ...... cpu上电        ->|<-      cpu状态设置       ->|  任务切换... ...
 
     |     内核态-线程模式      |       内核态-中段模式                  |    用户态-线程模式  |   内核态-中段模式                                   |               |
@@ -52,7 +52,7 @@ CPU上电进入：特权级（内核态）-线程 模式，堆栈指针使用主
 ```
 
 # CM3-特殊寄存器：
-PRIMASK\FAULTMASK\BASEPRI\xPSR
+PRIMASK\FAULTMASK\BASEPRI\xPSR   
 为了快速地关中断，Cortex-M内核专门设置了一条CPS指令，有4种用法：
 ```
     CPSID I;PRIMASK = 1;关中断
@@ -61,26 +61,29 @@ PRIMASK\FAULTMASK\BASEPRI\xPSR
     CPSIE F;FAULTMASK = 0;开异常
 ```  
 Cortex-M3的中断屏蔽寄存器组(属于特殊功能寄存器)
-这三个寄存器用于控制异常的使能和失能：  
+这三个寄存器用于控制异常的使能和失能：
+```  
     1、PRIMASK：这是个只有1个位的寄存器。当它置1时， 就关掉所有可屏蔽的异常，只剩下NMI和硬fault可以响应。它的缺省值是0，表示没有关中断。  
     2、FAULTMASK：这是个只有1个位的寄存器。当它置1时，只有NMI才能响应，所有其它的异常，包括中断和fault，通通闭嘴。它的缺省值也是0，表示没有关异常。  
     3、BASEPRI：这个寄存器最多有9位（由表达优先级的位数决定）。它定义了被屏蔽优先级的阈值。当它被设成某个值后，所有优先级号大于等于此值的中断都被关（优先级号越大，优先级越低）。但若被设成0，则不关闭任何中断，0也是缺省值。
+```
 
-
-特殊功能寄存器只能被专用的MSR和MRS指令访问：
-    MRS R0, BASEPRI   ;读取BASEPRI到R0中
-    MRS R0, FAULTMASK ;读取FAULTMASK到R0中
-    MRS R0, PRIMASK   ;读取PRIMASK到R0中
-    MSR BASEPRI, R0   ;写入R0到BASEPRI中
-    MSR FAULTMASK, R0 ;写入R0到FAULTMASK中
-    MSR PRIMASK, R0   ;写入R0到PRIMASK中
-只有在特权级下，才允许访问这3个寄存器。
-
-程序状态寄存器xPSR包括以下三个状态寄存器:
-    应用PSR(APSR)：记录算术逻辑单元ALU(arithmetic and logic unit)标志
-    执行PSR(EPSR)：执行状态
-    中断PSR(IPSR)：正服务的中断号
-
+特殊功能寄存器只能被专用的MSR和MRS指令访问：  
+```
+    MRS R0, BASEPRI   ;读取BASEPRI到R0中  
+    MRS R0, FAULTMASK ;读取FAULTMASK到R0中  
+    MRS R0, PRIMASK   ;读取PRIMASK到R0中  
+    MSR BASEPRI, R0   ;写入R0到BASEPRI中  
+    MSR FAULTMASK, R0 ;写入R0到FAULTMASK中  
+    MSR PRIMASK, R0   ;写入R0到PRIMASK中  
+只有在特权级下，才允许访问这3个寄存器。  
+```
+程序状态寄存器xPSR包括以下三个状态寄存器:  
+```
+    应用PSR(APSR)：记录算术逻辑单元ALU(arithmetic and logic unit)标志  
+    执行PSR(EPSR)：执行状态   
+    中断PSR(IPSR)：正服务的中断号    
+```
 # arm汇编基础
 1、Rn和[Rn] 寻址的区别：
 [Rn] 表示间接寻址，类似指针, 在汇编指令中， Rn和[Rn]的区别就是，前者Rn操作是直接取寄存器Rn中的值，[Rn]则是将寄存器Rn存放的值认为是一个地址，然后取这个地址中的值。  
