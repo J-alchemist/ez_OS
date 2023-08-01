@@ -5,9 +5,9 @@
 本系统参照ucosII实现，不支持两个及以上相同的任务优先级的任务，不支持时间片轮转
 
 #  based on Cortex-CM3
-进入异常函数前：cpu自动入栈 xPSR、R14 (LR)、R12, R3, R2, R1, R0
-进入异常函数后：手动看需要入栈那些: R11, R10, R9, R8, R7, R6, R5, R4
-exc_return = 0xfffffffd，cpu会运行在线程模式&&使用任务堆栈指针psp
+-进入异常函数前：cpu自动入栈 xPSR、R14 (LR)、R12, R3, R2, R1, R0
+-进入异常函数后：手动看需要入栈那些: R11, R10, R9, R8, R7, R6, R5, R4
+-exc_return = 0xfffffffd，cpu会运行在线程模式&&使用任务堆栈指针psp
 
 
 # Cortex-M3的栈示意图，r0～xpsr为Cortex-M3的栈帧结构
