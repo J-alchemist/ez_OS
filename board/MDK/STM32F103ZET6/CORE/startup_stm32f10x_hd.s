@@ -6,14 +6,25 @@
 ;* Description        : STM32F10x High Density Devices vector table for MDK-ARM 
 ;*                      toolchain. 
 ;*                      This module performs:
+ 
 ;*                      - Set the initial SP
+;*                      - 初始化堆栈指针SP
+ 
 ;*                      - Set the initial PC == Reset_Handler
+;*                      - 初始化PC指针 == Reset_Handler复位程序，上电复位后的第一个程序
+ 
 ;*                      - Set the vector table entries with the exceptions ISR address
+;*                      - 以规定的ISR（中断服务请求）地址来设置中断向量表
+ 
 ;*                      - Configure the clock system and also configure the external 
 ;*                        SRAM mounted on STM3210E-EVAL board to be used as data 
 ;*                        memory (optional, to be enabled by user)
+;*                      - 配置系统时钟，配置挂载到stm32板上的外部SRAM（可选项）
+ 
 ;*                      - Branches to __main in the C library (which eventually
 ;*                        calls main()).
+;*                      - 调用Ck库函数 __main，去到C的世界
+ 
 ;*                      After Reset the CortexM3 processor is in Thread mode,
 ;*                      priority is Privileged, and the Stack is set to Main.
 ;* <<< Use Configuration Wizard in Context Menu >>>   
@@ -25,42 +36,77 @@
 ; CONTENT OF SUCH FIRMWARE AND/OR THE USE MADE BY CUSTOMERS OF THE CODING
 ; INFORMATION CONTAINED HEREIN IN CONNECTION WITH THEIR PRODUCTS.
 ;*******************************************************************************
-
+ 
+ 
+; 1-栈
 ; Amount of memory (in bytes) allocated for Stack
+; 为堆栈分配内存，以字节为单位
+ 
 ; Tailor this value to your application needs
+; 可以根据需要修改栈的大小
+ 
 ; <h> Stack Configuration
+; 配置栈（栈就是一块内存）：变量（局部/全局），函数调用
+ 
 ;   <o> Stack Size (in Bytes) <0x0-0xFFFFFFFF:8>
 ; </h>
-
+ 
 Stack_Size      EQU     0x00000400
-
+; 定义栈大小 1024字节（1KB）
+ 
                 AREA    STACK, NOINIT, READWRITE, ALIGN=3
+;               告诉编译器汇编一个数据段，段名为STACK，不初始化，可读可写，8字节对齐
+ 
 Stack_Mem       SPACE   Stack_Size
+;               分配内存空间，单位字节，大小为Stack_Size
 __initial_sp
-                                                  
+; 栈顶地址
+ 
+ 
+; 2-堆
 ; <h> Heap Configuration
+; 配置堆，主要用于动态内存分配，malloc()
+ 
 ;   <o>  Heap Size (in Bytes) <0x0-0xFFFFFFFF:8>
 ; </h>
-
+ 
 Heap_Size       EQU     0x00000200
-
+; 512字节
+ 
                 AREA    HEAP, NOINIT, READWRITE, ALIGN=3
 __heap_base
 Heap_Mem        SPACE   Heap_Size
 __heap_limit
-
-                PRESERVE8
-                THUMB
-
-
+; 堆起始地址
+ 
+                PRESERVE8   ; 当前堆栈以8字节对齐
+                THUMB       ; 兼容THUMB指令集，THUMB是16位指令集，现在使用的THUMB-2是32位指令
+ 
+ 
+; 3-中断向量表
 ; Vector Table Mapped to Address 0 at Reset
+; 初始化中断向量表，向量表在复位时映射到地址0
+ 
                 AREA    RESET, DATA, READONLY
-                EXPORT  __Vectors
+;               汇编一个数据段，属性只读
+ 
+                EXPORT  __Vectors       
+;               向量表起始地址
+ 
                 EXPORT  __Vectors_End
+;               向量表结束地址
+ 
                 EXPORT  __Vectors_Size
-
+ 
 __Vectors       DCD     __initial_sp               ; Top of Stack
+;               把栈顶地址初始化成向量表的起始地址，解释如下：
+;               向量表从FLASH的0地址开始放置，以4个字节为一个单位，地址0存放的是栈
+;               顶地址，0X04存放的是复位程序的地址，以此类推。从代码上看，向量表中存放
+;               的都是中断服务函数的函数名，可我们知道C语言中的函数名就是一个地址。      
+ 
                 DCD     Reset_Handler              ; Reset Handler
+;               初始化复位程序地址，地址0X04
+ 
                 DCD     NMI_Handler                ; NMI Handler
                 DCD     HardFault_Handler          ; Hard Fault Handler
                 DCD     MemManage_Handler          ; MPU Fault Handler
@@ -75,7 +121,7 @@ __Vectors       DCD     __initial_sp               ; Top of Stack
                 DCD     0                          ; Reserved
                 DCD     PendSV_Handler             ; PendSV Handler
                 DCD     SysTick_Handler            ; SysTick Handler
-
+ 
                 ; External Interrupts
                 DCD     WWDG_IRQHandler            ; Window Watchdog
                 DCD     PVD_IRQHandler             ; PVD through EXTI Line detect
@@ -138,27 +184,51 @@ __Vectors       DCD     __initial_sp               ; Top of Stack
                 DCD     DMA2_Channel3_IRQHandler   ; DMA2 Channel3
                 DCD     DMA2_Channel4_5_IRQHandler ; DMA2 Channel4 & Channel5
 __Vectors_End
-
+ 
 __Vectors_Size  EQU  __Vectors_End - __Vectors
-
+; 至此，向量表分配完成。
+ 
+ 
+; 4-复位程序
+;               开始进行复位程序，定义一个只读的代码段
                 AREA    |.text|, CODE, READONLY
                 
 ; Reset handler
 Reset_Handler   PROC
+; 定义子程序，与ENDP成对使用，表示子程序的开始和结束
+ 
                 EXPORT  Reset_Handler             [WEAK]
+;               声明全局属性，弱定义
+ 
                 IMPORT  __main
+;               相当于c中的extern，从外部寻找一个__main函数
+ 
                 IMPORT  SystemInit
+;               寻找一个SystemInit系统时钟初始化函数
+ 
                 LDR     R0, =SystemInit
-                BLX     R0               
+;               把SystemInit函数地址加载到R0寄存器
+ 
+                BLX     R0   
+;               跳转到R0地址去执行函数   
+ 
                 LDR     R0, =__main
                 BX      R0
+;               加载 + 执行__main函数
                 ENDP
-                
+; 至此复位函数完成
+ 
+ 
+; 5-中断服务程序
 ; Dummy Exception Handlers (infinite loops which can be modified)
-
+; 空的异常处理程序（无限循环），可以修改
+ 
 NMI_Handler     PROC
+;               PROC和ENDP定义了一个子程序
                 EXPORT  NMI_Handler                [WEAK]
+;               声明全局属性，弱定义
                 B       .
+;               跳转到无限循环，B为跳转指令，·为无限循环
                 ENDP
 HardFault_Handler\
                 PROC
@@ -197,9 +267,9 @@ SysTick_Handler PROC
                 EXPORT  SysTick_Handler            [WEAK]
                 B       .
                 ENDP
-
+ 
 Default_Handler PROC
-
+ 
                 EXPORT  WWDG_IRQHandler            [WEAK]
                 EXPORT  PVD_IRQHandler             [WEAK]
                 EXPORT  TAMPER_IRQHandler          [WEAK]
@@ -260,7 +330,7 @@ Default_Handler PROC
                 EXPORT  DMA2_Channel2_IRQHandler   [WEAK]
                 EXPORT  DMA2_Channel3_IRQHandler   [WEAK]
                 EXPORT  DMA2_Channel4_5_IRQHandler [WEAK]
-
+ 
 WWDG_IRQHandler
 PVD_IRQHandler
 TAMPER_IRQHandler
@@ -322,37 +392,43 @@ DMA2_Channel2_IRQHandler
 DMA2_Channel3_IRQHandler
 DMA2_Channel4_5_IRQHandler
                 B       .
-
+ 
                 ENDP
-
+ 
                 ALIGN
-
+ 
+; 6-堆栈的初始化
 ;*******************************************************************************
 ; User Stack and Heap initialization
 ;*******************************************************************************
                  IF      :DEF:__MICROLIB
+;                在IDE(mdk)中定义
                 
                  EXPORT  __initial_sp
                  EXPORT  __heap_base
                  EXPORT  __heap_limit
+;                把栈顶地址，堆起始地址等声明为具有全局属性，供IDE调用
                 
                  ELSE
                 
-                 IMPORT  __use_two_region_memory
+                 IMPORT  __use_two_region_memory    ; 由用户自己实现
+ 
                  EXPORT  __user_initial_stackheap
+;                执行__user_initial_stackheap（用户初始化堆栈函数）
                  
 __user_initial_stackheap
-
+;                初始化堆栈
+ 
                  LDR     R0, =  Heap_Mem
                  LDR     R1, =(Stack_Mem + Stack_Size)
                  LDR     R2, = (Heap_Mem +  Heap_Size)
                  LDR     R3, = Stack_Mem
                  BX      LR
-
+ 
                  ALIGN
-
+ 
                  ENDIF
-
+ 
                  END
-
+ 
 ;******************* (C) COPYRIGHT 2011 STMicroelectronics *****END OF FILE*****

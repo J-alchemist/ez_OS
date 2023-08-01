@@ -9,12 +9,11 @@
 // 任务就绪表大小
 #define OS_CFG_TASK_READY_TBL_SIZE                      (8)     
 
-// 任务最低优先级限制
+// 任务最低优先级限制（must not modify!!! otherwise: OS core will be abnormal）
 #define OS_CFG_TASK_PRIORITY_LOWEST                     (63)   
 
 // idle任务栈大小
 #define OS_CFG_IDLE_TASK_STACK_SIZE                     (64)
-
 
 // tcb具体结构
 typedef struct os_tcb {
@@ -23,17 +22,17 @@ typedef struct os_tcb {
     u8_t                taskStatus;             // 任务状态
     u8_t                taskPriority;           // 任务优先级
 
-    u8_t                taskReadyTbl_bit;       /* task ready table bit  */
-    u8_t                taskReadyGroup_bit;     /* task ready group bit  */
+    u8_t                taskReadyTbl_bit;       // 任务组内编号
+    u8_t                taskReadyGroup_bit;     // 任务就绪组
 
-    u8_t                taskReadyTbl_mask;      /* task ready table mask value */
-    u8_t                taskReadyGroup_mask;    /* task ready group mask value */
+    u8_t                taskReadyTbl_mask;      // 组内编号掩码（对应的某位为1）
+    u8_t                taskReadyGroup_mask;    // 组编号掩码（对应的某位为1）
     
-    struct os_tcb       *list_next_tcb;         /* pointer to next tcb */
+    struct os_tcb       *list_next_tcb;         // 下一个任务tcb地址
 } os_tcb_t;
 
 
-// 每个任务的任务控制块结构
+// 任务控制块的堆结构
 #define OS_FLAG_UNUSED           (0)
 #define OS_FLAG_USED             (1)
 typedef struct os_tcb_heap { 
@@ -43,8 +42,9 @@ typedef struct os_tcb_heap {
 
 
 // 任务优先级信息表，首地址也是 指向任务栈顶的指针
+// 实现优先级-任务tcb的一一绑定
 typedef struct os_task_priority_info {
-    os_tcb_t    *ptcb;                          /* point to the priority of task's tcb */
+    os_tcb_t    *ptcb;                          // 每个优先级下限制一个任务（类似ucosii不支持时间片轮转）
 } os_task_priority_info_t;
 
 

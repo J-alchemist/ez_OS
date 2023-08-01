@@ -10,7 +10,7 @@
 #define TEST_TASK1_PRIORITY				(2)
 #define TEST_TASK2_PRIORITY				(3)
 
-// 栈,默认高向低地址增长
+// 栈,默认高向低地址增长 
 static os_stk_t task1_stk[TEST_TASK1_STK_SIZE];
 static os_stk_t task2_stk[TEST_TASK2_STK_SIZE];
 

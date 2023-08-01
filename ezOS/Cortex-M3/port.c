@@ -26,7 +26,7 @@ void port_set_PendSV_Handler_lowest_priority(void)
 os_stk_t *port_task_stack_init(void (*task)(void *arg), 
                             void *arg, 
                             os_stk_t *stack)
-{
+{           
     // os进入异常[前]，cpu自动入栈
     // 自动入栈寄存器
     // 自动入栈的为栈帧
@@ -62,7 +62,7 @@ __asm void port_PendSV_Handler(void)
     // 入栈: 将r4～r11从r0指向的地址存放数据，r0自动递减
     stmdb   r0!, {r4-r11}
 
-    // 入栈完毕，更新ccur_task的栈顶指针
+    // 入栈完毕，更新cur_task的栈顶指针
     ldr     r1, =ezos_curr_running_task_ptcb        
     ldr     r1, [r1]                            
     str     r0, [r1]                            
@@ -133,9 +133,9 @@ __asm void port_SVC_Handler(void)
     mov r0, #0
     msr basepri, r0 
 
-    // 设置exec_return
-    // LR = LR | 0xd，改变exec_return: 0xfffffff9 -> 0xfffffffd
-    // 退出isr，跳转到r14，因为exec_return = 0xfffffffd，cpu会运行在线程模式，使用进程堆栈指针psp
+    // 设置exc_return
+    // LR = LR | 0xd，改变exc_return: 0xfffffff9 -> 0xfffffffd
+    // 退出isr，跳转到r14，因为exc_return = 0xfffffffd，cpu会运行在线程模式，使用任务堆栈指针psp
     orr r14, #0xd
     bx r14
 }

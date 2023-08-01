@@ -18,7 +18,7 @@
 void OSInit(void);
 void OSStart(void);
 
-// LR
+// PC的异常返回函数（LR的值）
 void os_task_return(void);
 // OS是否在跑
 u8_t os_get_running_status(void);

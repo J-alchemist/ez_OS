@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "delay.h": "c",
+        "sys.h": "c",
+        "core.h": "c",
+        "port.h": "c",
+        "ezos_struct.h": "c",
+        "core_cm3.h": "c"
+    }
+}

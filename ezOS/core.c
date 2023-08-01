@@ -153,18 +153,20 @@ const u8_t ezos_lowest_bit_of_byte_map[256] = {
 };
 
 /**
- * 详细解释: 
+ * 空间换时间的快速查找
+ * 详细解释: 从就绪表中获取最高优先级就绪任务
  * ezos_task_ready_tbl[]
- * 下标：任务组
+ * 下标：任务组，哪一组有任务就绪，该bit为1
  * 数值：组内编号
 */
-static u8_t os_get_highest_ready_task_priority(void)    // ????????????????
+static u8_t os_get_highest_ready_task_priority(void)   
 {
     u8_t x, y;
 
-    y = ezos_lowest_bit_of_byte_map[ezos_task_ready_group]; 
-    x = ezos_lowest_bit_of_byte_map[ezos_task_ready_tbl[y]];
+    y = ezos_lowest_bit_of_byte_map[ezos_task_ready_group];     // 得到最高优先级组
+    x = ezos_lowest_bit_of_byte_map[ezos_task_ready_tbl[y]];    // 得到某组下的最高优先级任务
 
+    // y<<3，相当于第几组乘以8，再加上组内编号即可
     ezos_next_run_priority = (u8_t)((y << 3) + x);      // 下一个就绪任务的优先级
 
     return ezos_next_run_priority;
@@ -322,7 +324,7 @@ void os_ticks_increment(void)
                 if(ptcb->taskStatus == OS_TASK_STATUS_SLEEPING){
                     ptcb->taskStatus = OS_TASK_STATUS_READY;
 
-                    // ？？？？？？？？？
+                    // 任务加入就绪表(对应位置一)
                     ezos_task_ready_group                         |= ptcb->taskReadyGroup_mask;
                     ezos_task_ready_tbl[ptcb->taskReadyGroup_bit] |= ptcb->taskReadyTbl_mask;
                 }
@@ -384,16 +386,16 @@ void os_time_dly(u32_t ticks)
     }
 
     if(ticks > 0) {
-
         OSEnterCritical();
-
-        y = ezos_curr_running_task_ptcb->taskReadyGroup_bit;     // ？？？？？？？？？？
+        
+        // 更改任务就绪表
+        y = ezos_curr_running_task_ptcb->taskReadyGroup_bit;   
         ezos_task_ready_tbl[y] &= ~ezos_curr_running_task_ptcb->taskReadyTbl_mask;
 
-        if(ezos_task_ready_tbl[y] == 0) {
+        if(ezos_task_ready_tbl[y] == 0) {       // y组无就绪任务
             ezos_task_ready_group &= ~ezos_curr_running_task_ptcb->taskReadyGroup_mask;
         }
-
+        // 任务的tcb信息表
         ezos_curr_running_task_ptcb->taskDlyTicks = ticks;                  // 任务等待时间
         ezos_curr_running_task_ptcb->taskStatus = OS_TASK_STATUS_SLEEPING;  // 更改任务状态
 
@@ -417,7 +419,9 @@ s16_t os_task_dlyms(u32_t ms)
     return OS_ERR_NONE;
 }
 
-void os_task_return(void)      // 作为异常返回PC的链接位置，LR存储     
+// 异常函数
+// 栈初始化的时候默认的异常返回函数（未正常入栈LR时，PC返回时就会跳转到此处）
+void os_task_return(void)      // 作为异常返回PC的链接位置    
 {
     while (1) { 
         os_time_dly(OS_CFG_TICKS_WITHIN_ONE_SECOND);
@@ -471,5 +475,5 @@ void OSStart(void)
     os_get_highest_ready_task_priority();   // 获取最高优先级就绪任务
     os_update_next_run_task_ptcb();         // 从优先级信息表，更新下一个任务tcb
     port_Systick_init();                    // 初始化内核定时器
-    port_start_first_task();
+    port_start_first_task();                // 重置msp,触发svc 
 }
